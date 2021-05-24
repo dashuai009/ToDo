@@ -8,26 +8,22 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Update
 import androidx.room.Dao
+import kotlinx.coroutines.flow.Flow
 
 
 @Dao
 interface NoteDao {
     @Query("SELECT * FROM todo_Dao")
-    fun all(): Array<Note>
-
-
-    @Query(
-        "SELECT * FROM user WHERE first_name LIKE :first AND " +
-                "last_name LIKE :last LIMIT 1"
-    )
-    fun findByName(first: String?, last: String?): Note?
+    suspend fun all(): List<Note>
+    @Query("SELECT * FROM todo_Dao")
+    fun getAll(): Flow<List<Note>>
 
     @Insert
-    fun insert(note: Note)
+    suspend fun insert(note: Note):Long
 
     @Update
-    fun update(user: Note)
+    suspend fun update(user: Note)
 
     @Delete
-    fun delete(user: Note)
+    suspend fun delete(user: Note)
 }

@@ -13,39 +13,47 @@ import androidx.annotation.NonNull
 import androidx.recyclerview.widget.RecyclerView
 import com.dashuai009.todo.NoteOperator
 import com.dashuai009.todo.R
-import com.dashuai009.todo.beans.Note
-import com.dashuai009.todo.beans.State
+import com.dashuai009.todo.db.entity.Note
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.Comparator
-import kotlin.collections.ArrayList
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 
 
 class NoteListAdapter(operator: NoteOperator, context: Context) :
     RecyclerView.Adapter<NoteListAdapter.NoteViewHolder>() {
     private val operator: NoteOperator = operator
-    private val notes: MutableList<Note> = ArrayList<Note>()
-    private val mSharedPreferences: SharedPreferences = context.getSharedPreferences("todo", Context.MODE_PRIVATE)
+    private val notes = mutableListOf<Note>()
+    private val mSharedPreferences: SharedPreferences =
+        context.getSharedPreferences("todo", Context.MODE_PRIVATE)
 
-    fun refresh(newNotes: List<Note>) {
+    suspend fun refresh(newNotes: List<Note>) {
         notes.clear()
         notes.addAll(newNotes)
-
         refresh(mSharedPreferences.getBoolean(KEY_IS_NEED_SORT, false))
     }
 
     fun refresh(isNeedSort: Boolean) {
         if (isNeedSort) {
             notes.sortWith(Comparator { o1, o2 ->
-                if (o1.getPriority() == o2.getPriority()) {
-                    o1.getState().intValue - o2.getState().intValue
+                if (o1.priority == o2.priority) {//重要性相同按照状态排序
+                    if (o1.Done == o2.Done) {//状态相同按照id排序
+                        (o1.id - o2.id).toInt()
+                    } else {
+                        if (o1.Done) {
+                            1
+                        } else {
+                            -1
+                        }
+                    }
                 } else {
-                    o1.getPriority() - o2.getPriority()
+                    o1.priority - o2.priority
                 }
             })
-        }else{
+        } else {
             notes.sortWith(Comparator { o1, o2 ->
-                (o1.getId()-o2.getId()).toInt()
+                (o1.id - o2.id).toInt()
             })
         }
         notifyDataSetChanged()
@@ -59,22 +67,23 @@ class NoteListAdapter(operator: NoteOperator, context: Context) :
     }
 
     override fun onBindViewHolder(@NonNull holder: NoteViewHolder, pos: Int) {
-        val currentNode: Note = notes[pos]
+        var currentNode: Note = notes[pos]
         holder.deleteBtn.setOnClickListener {
-            if (operator.deleteNote(currentNode)) {
-                notes.removeAt(pos)
-                refresh(
-                    mSharedPreferences.getBoolean(
-                        KEY_IS_NEED_SORT,
-                        false
-                    )
-                )
+            GlobalScope.launch {
+                operator.deleteNote(currentNode)
             }
+            notes.removeAt(pos)
+            refresh(
+                mSharedPreferences.getBoolean(
+                    KEY_IS_NEED_SORT,
+                    false
+                )
+            )
         }
-        holder.dateText.text = SIMPLE_DATE_FORMAT.format(currentNode.getDate())
-        holder.contentText.text = currentNode.getContent()
-        holder.checkBox.isChecked = currentNode.getState() === State.DONE
-        if (currentNode.getState() === State.DONE) {
+        holder.dateText.text = SIMPLE_DATE_FORMAT.format(currentNode.date)
+        holder.contentText.text = currentNode.content
+        holder.checkBox.isChecked = currentNode.Done
+        if (currentNode.Done) {
             holder.contentText.setTextColor(Color.GRAY)
             holder.contentText.paintFlags =
                 holder.contentText.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
@@ -83,12 +92,13 @@ class NoteListAdapter(operator: NoteOperator, context: Context) :
             holder.contentText.paintFlags =
                 holder.contentText.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
         }
-        holder.contentText.setBackgroundColor(bgColor[currentNode.getPriority()])
+        holder.contentText.setBackgroundColor(bgColor[currentNode.priority])
         holder.checkBox.setOnClickListener {
-            currentNode.setState(if (currentNode.getState() === State.DONE) State.TODO else State.DONE)
-            if (operator.updateNote(currentNode)) {
-                notes[pos] = currentNode
+            currentNode.Done = (!currentNode.Done)
+            GlobalScope.launch {
+                operator.updateNote(currentNode)
             }
+            notes [pos] = currentNode
             refresh(
                 mSharedPreferences.getBoolean(
                     KEY_IS_NEED_SORT,

@@ -1,11 +1,8 @@
 package com.dashuai009.todo;
 
-import android.app.Activity
+
 import android.app.DatePickerDialog.OnDateSetListener
 import android.app.TimePickerDialog.OnTimeSetListener
-import android.content.ContentValues
-import android.content.Context
-import android.database.sqlite.SQLiteDatabase
 import android.os.Bundle
 import android.text.TextUtils
 import android.util.Log
@@ -15,27 +12,39 @@ import android.widget.*
 import android.widget.AdapterView.OnItemSelectedListener
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.DialogFragment
-import com.dashuai009.todo.db.TodoDbHelper
+import androidx.room.Room
+import com.dashuai009.todo.db.TodoDataBase
+import com.dashuai009.todo.db.dao.NoteDao
+import com.dashuai009.todo.db.entity.Note
 import com.dashuai009.todo.ui.DatePickerFragment
 import com.dashuai009.todo.ui.TimePickerFragment
+import kotlinx.coroutines.*
 import java.text.ParseException
 import java.text.SimpleDateFormat
 import java.util.*
-import com.dashuai009.todo.db.TodoContract.NoteEntry;
 
 
 class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
-    OnItemSelectedListener {
+    OnItemSelectedListener , CoroutineScope by MainScope() {
     private lateinit var editText: EditText
     private lateinit var dateText: EditText
     private lateinit var timeText: EditText
     private lateinit var addBtn: Button
     private lateinit var prioritySpinner: Spinner
-    private val dbHelper: TodoDbHelper = TodoDbHelper(this)
+    private lateinit var dao:NoteDao
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_note)
+
+        val db = Room.databaseBuilder(
+            applicationContext,
+            TodoDataBase::class.java, "todo"
+        ).build()
+        dao = db.noteDao();
+
+
         val c = Calendar.getInstance()
         todoYear = c[Calendar.YEAR]
         todoMonth = c[Calendar.MONTH]
@@ -58,21 +67,35 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
                 ).show()
                 return@OnClickListener
             }
-            val succeed = saveNote2Database(content.toString().trim { it <= ' ' })
-            if (succeed) {
-                Toast.makeText(
-                    this@NoteActivity,
-                    "Note added", Toast.LENGTH_SHORT
-                ).show()
-                setResult(RESULT_OK)
-            } else {
-                Toast.makeText(
-                    this@NoteActivity,
-                    "Error", Toast.LENGTH_SHORT
-                ).show()
+            launch {
+                val succeed = async {saveNote2Database(content.toString().trim { it <= ' ' })}
+                if (succeed.await()) {
+                    /*
+                    TODO  未解决的问题，无法在协程中v操作view
+                     android.view.ViewRootImpl$CalledFromWrongThreadException: Only the original thread that created a view hierarchy can touch its views.
+                     */
+
+                    /*Toast.makeText(
+                        this@NoteActivity,
+                        "Note added", Toast.LENGTH_SHORT
+                    ).show()*/
+                    setResult(RESULT_OK)
+                    finish()
+                } else {
+                    /*Toast.makeText(
+                        this@NoteActivity,
+                        "Error", Toast.LENGTH_SHORT
+                    ).show()*/
+                }
+                //setResult(RESULT_OK)
+                //finish()
             }
-            finish()
         })
+        var thread = object : Thread() {
+            override fun run() {
+                finish();
+            }
+        }
         dateText = findViewById(R.id.editTextDate)
         timeText = findViewById(R.id.editTextTime)
 
@@ -85,7 +108,6 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
         prioritySpinner.adapter = adapter
         prioritySpinner.onItemSelectedListener = this as OnItemSelectedListener
     }
-
 
 
     override fun onItemSelected(
@@ -131,37 +153,24 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
         super.onDestroy()
     }
 
-    private val stringFrom5int: String
-        get() {
-            val ft = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ENGLISH)
-            var tag: Date? = null
-            try {
-                tag =
-                    ft.parse("" + todoYear + "-" + todoMonth + "-" + todoDay + " " + todoHour + ":" + todoMinute)
-                Log.d("todoTTT", tag.toString())
-            } catch (e: ParseException) {
-                Log.d("parse", "Unparseable using $ft")
-            }
-            val ft2 = SimpleDateFormat("EEE, d MMM yyyy HH:mm", Locale.ENGLISH)
-            Log.d("todoTTT", ft2.format(tag))
-            return ft2.format(tag)
+    fun stringFrom5int(): Date {
+        val ft = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.ENGLISH)
+        var tag: Date? = null
+        try {
+            tag = ft.parse("$todoYear-$todoMonth-$todoDay $todoHour:$todoMinute")
+            Log.d("todoTTT", tag.toString())
+        } catch (e: ParseException) {
+            Log.d("parse", "Unparseable using $ft")
         }
+        //val ft2 = SimpleDateFormat("EEE, d MMM yyyy HH:mm", Locale.ENGLISH)
+        //Log.d("todoTTT", ft2.format(tag))
+        return tag!!
+    }
 
-    private fun saveNote2Database(content: String): Boolean {
-        val db: SQLiteDatabase = dbHelper.writableDatabase
-        // Create a new map of values, where column names are the keys
-        val values = ContentValues()
-        values.put(NoteEntry.COLUMN_NAME_DATE, stringFrom5int)
-        values.put(NoteEntry.COLUMN_NAME_STATE, 0)
-        values.put(NoteEntry.COLUMN_NAME_CONTENT, content)
-        values.put(NoteEntry.COLUMN_NAME_PRIORITY, priorityValue)
-        Log.d("todoTTT", values.toString())
+    private suspend fun saveNote2Database(content: String): Boolean {
 
-// Insert the new row, returning the primary key value of the new row
-        val newRowId = db.insert(NoteEntry.TABLE_NAME, null, values)
-        db.close()
-        //  插入一条新数据，返回是否插入成功
-        return newRowId != -1L
+        val newRowId=dao.insert(Note(content,stringFrom5int(),false,priorityValue))
+        return newRowId != 0L
     }
 
     companion object {

@@ -1,9 +1,10 @@
 package com.dashuai009.todo
 
-import com.dashuai009.todo.beans.Note
+import com.dashuai009.todo.db.entity.Note
+
 
 interface NoteOperator {
-    fun deleteNote(note: Note):Boolean
+    suspend fun deleteNote(note: Note)
 
-    fun updateNote(note: Note):Boolean
+    suspend fun updateNote(note: Note)
 }
