@@ -3,11 +3,12 @@
 
 # 截图
 
-<figure>
-    <img src="PrtSc/MainActivity.jpg"/><img src="PrtSc/NoteActivity.jpg"/><img src="PrtSc/DatePicker.jpg"/>
-</figure>
 
-
+<div style="display:grid;grid-template-columns:repeat(3, 33%);">
+<img src="PrtSc/MainActivity.jpg"/>
+<img src="PrtSc/NoteActivity.jpg"/>
+<img src="PrtSc/DatePicker.jpg"/>
+</div>
 
 # 特点
 1. 使用room持久性库访问数据库
