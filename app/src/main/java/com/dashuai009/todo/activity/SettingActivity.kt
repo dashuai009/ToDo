@@ -10,7 +10,7 @@ import com.dashuai009.todo.R
 class SettingActivity() : AppCompatActivity() {
 
     private val KEY_IS_NEED_SORT: String = "is_need_sort";
-    lateinit private var mSharedPreferences: SharedPreferences
+    private lateinit var mSharedPreferences: SharedPreferences
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
