@@ -95,7 +95,6 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
     }
 
     fun setCurNote(x: Note) {
-        Log.d("IDDD", x.toString())
         curNote = x;
         editText.setText(curNote.content)
         val ftyMd = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH)
@@ -109,6 +108,7 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
         todoDay = c[Calendar.DAY_OF_MONTH]
         todoHour = c[Calendar.HOUR_OF_DAY]
         todoMinute = c[Calendar.MINUTE]
+       // prioritySpinner.setSelection(priorityValue)
     }
 
 
@@ -177,7 +177,7 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
             dao.update(curNote)
             curNote.id
         }
-        intent = Intent();
+        intent = Intent()
         intent.putExtra("id", newRowId);
         setResult(RESULT_OK, intent)
         finish()

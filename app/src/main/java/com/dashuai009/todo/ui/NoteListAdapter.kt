@@ -117,11 +117,11 @@ class NoteListAdapter(var context: Context, var dao: NoteDao) :
             holder.contentText.paintFlags =
                 holder.contentText.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
         } else {
-            holder.contentText.setTextColor(Color.BLACK)
+            holder.contentText.setTextColor(bgColor[currentNode.priority])
+           // holder.contentText.setTextColor(Color.BLACK)
             holder.contentText.paintFlags =
                 holder.contentText.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
         }
-        holder.contentText.setBackgroundColor(bgColor[currentNode.priority])
         holder.checkBox.setOnClickListener {
             currentNode.Done = (!currentNode.Done)
 
@@ -152,7 +152,7 @@ class NoteListAdapter(var context: Context, var dao: NoteDao) :
 
     companion object {
         private val SIMPLE_DATE_FORMAT = SimpleDateFormat("EEE, d MMM yyyy HH:mm", Locale.ENGLISH)
-        private val bgColor = intArrayOf(Color.WHITE, Color.YELLOW, Color.RED)
+        private val bgColor = intArrayOf(Color.BLACK, Color.BLUE, Color.RED)
         private const val KEY_IS_NEED_SORT = "is_need_to_sort"
     }
 
