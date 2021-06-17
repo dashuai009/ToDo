@@ -1,5 +1,5 @@
 # ToDo
-一个todo软件，使用了sqlite
+一个todo软件，使用了Room持久性库！
 
 # 截图
 
@@ -12,5 +12,15 @@
 
 # 特点
 1. 使用room持久性库访问数据库
-2. 具体实现还是很丑，有launch还有GlobalScope.launch，而且会创建两个Room.dataBaseBuilder,大概率使用一会之后就会崩溃
-3. 去掉了插入一条todo之后的Toast提示，暂时不会搞
+
+2. 数据库操作放到
+
+   ```
+   MainScope().launch(Dispatchers.IO) {
+       //数据库操作
+   }
+   ```
+
+3. 每个条目可编辑！
+
+4. 可以显示还有多少时间到期！

@@ -92,7 +92,8 @@ class NoteListAdapter(var context: Context, var dao: NoteDao) :
         if (t <= 0) {
             holder.remainTime.text = "不剩时间了"
         } else {
-            holder.remainTime.text = "还剩${ t / 1000 / 3600 }小时${t/1000/60%60}分钟"
+            holder.remainTime.text =
+                "还剩${t / 1000 / 60 / 60 / 24}天${t % (3600 * 1000 * 24) / 1000 / 60/60}小时${t / 1000 / 60 % 60}分钟"
         }
         holder.deleteBtn.setOnClickListener {
             MainScope().launch(Dispatchers.IO) {
@@ -118,7 +119,7 @@ class NoteListAdapter(var context: Context, var dao: NoteDao) :
                 holder.contentText.paintFlags or Paint.STRIKE_THRU_TEXT_FLAG
         } else {
             holder.contentText.setTextColor(bgColor[currentNode.priority])
-           // holder.contentText.setTextColor(Color.BLACK)
+            // holder.contentText.setTextColor(Color.BLACK)
             holder.contentText.paintFlags =
                 holder.contentText.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
         }
