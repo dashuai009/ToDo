@@ -14,16 +14,19 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface NoteDao {
     @Query("SELECT * FROM todo_Dao")
-    suspend fun all(): List<Note>
+    fun all(): List<Note>
     @Query("SELECT * FROM todo_Dao")
     fun getAll(): Flow<List<Note>>
+
+    @Query("SELECT * FROM todo_Dao WHERE id= :id  LIMIT 1")
+    fun getById(id:Long):Note
 
     @Insert
     suspend fun insert(note: Note):Long
 
     @Update
-    suspend fun update(user: Note)
+    fun update(user: Note)
 
     @Delete
-    suspend fun delete(user: Note)
+    fun delete(user: Note)
 }

@@ -10,6 +10,7 @@
 
     <CheckBox
         android:id="@+id/checkbox"
+        android:button="@drawable/check_box"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content" />
 
@@ -44,5 +45,14 @@
         android:padding="8dp"
         android:scaleType="centerInside"
         android:src="@android:drawable/ic_menu_close_clear_cancel" />
-
+    <TextView
+        android:id="@+id/remainTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:layout_below="@id/text_content"
+        android:layout_toEndOf="@id/text_date"
+        android:layout_toStartOf="@+id/btn_delete"
+        android:gravity="right"
+        android:text="TextView" />
 </RelativeLayout>

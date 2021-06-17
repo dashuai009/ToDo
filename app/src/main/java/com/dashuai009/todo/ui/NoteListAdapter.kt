@@ -9,26 +9,25 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.CheckBox
 import android.widget.TextView
-import androidx.annotation.NonNull
 import androidx.recyclerview.widget.RecyclerView
-import com.dashuai009.todo.NoteOperator
 import com.dashuai009.todo.R
+import com.dashuai009.todo.db.dao.NoteDao
 import com.dashuai009.todo.db.entity.Note
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.Comparator
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
 
 
-class NoteListAdapter(operator: NoteOperator, context: Context) :
+class NoteListAdapter(var context: Context, var dao: NoteDao) :
     RecyclerView.Adapter<NoteListAdapter.NoteViewHolder>() {
-    private val operator: NoteOperator = operator
-    private val notes = mutableListOf<Note>()
+    var notes = mutableListOf<Note>()
     private val mSharedPreferences: SharedPreferences =
         context.getSharedPreferences("todo", Context.MODE_PRIVATE)
 
-    suspend fun refresh(newNotes: List<Note>) {
+    fun refresh(newNotes: List<Note>) {
         notes.clear()
         notes.addAll(newNotes)
         refresh(mSharedPreferences.getBoolean(KEY_IS_NEED_SORT, false))
@@ -37,40 +36,67 @@ class NoteListAdapter(operator: NoteOperator, context: Context) :
     fun refresh(isNeedSort: Boolean) {
         if (isNeedSort) {
             notes.sortWith(Comparator { o1, o2 ->
-                if (o1.priority == o2.priority) {//重要性相同按照状态排序
-                    if (o1.Done == o2.Done) {//状态相同按照id排序
-                        (o1.id - o2.id).toInt()
-                    } else {
-                        if (o1.Done) {
-                            1
-                        } else {
-                            -1
-                        }
-                    }
+                if (o1.Done == o2.Done) {
+                    o2.priority - o1.priority
                 } else {
-                    o1.priority - o2.priority
+                    if (o1.Done) {
+                        1
+                    } else {
+                        -1
+                    }
                 }
             })
         } else {
             notes.sortWith(Comparator { o1, o2 ->
-                (o1.id - o2.id).toInt()
+                (o1.date.time - o2.date.time).toInt()
             })
         }
-        notifyDataSetChanged()
+        MainScope().launch(Dispatchers.Main) {
+            notifyDataSetChanged()
+        }
     }
 
-    @NonNull
-    override fun onCreateViewHolder(@NonNull parent: ViewGroup, pos: Int): NoteViewHolder {
+    fun refresh(x: Note) {//这里有多线程互锁的问题。
+        val iter = notes.listIterator()
+        while (iter.hasNext()) {
+            if (iter.next().id == x.id) {
+                iter.set(x)
+                return
+            }
+        }
+        notes.add(x)
+        refresh(mSharedPreferences.getBoolean(KEY_IS_NEED_SORT, false))
+    }
+
+
+    override fun onCreateViewHolder(parent: ViewGroup, pos: Int): NoteViewHolder {
         val itemView: View = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_note, parent, false)
         return NoteViewHolder(itemView)
     }
 
-    override fun onBindViewHolder(@NonNull holder: NoteViewHolder, pos: Int) {
-        var currentNode: Note = notes[pos]
+
+    internal var listener: NoteListener = context as NoteListener
+
+    interface NoteListener {
+        fun onContentClick(curNote: Note)
+        //fun onDialogNegativeClick(dialog: DialogFragment)
+        //fun onCancelListener(dialog: DialogFragment)
+    }
+
+
+    override fun onBindViewHolder(holder: NoteViewHolder, pos: Int) {
+        val currentNode: Note = notes[pos]
+        val dt = Date()
+        val t: Long = currentNode.date.time - dt.time
+        if (t <= 0) {
+            holder.remainTime.text = "不剩时间了"
+        } else {
+            holder.remainTime.text = "还剩${ t / 1000 / 3600 }小时${t/1000/60%60}分钟"
+        }
         holder.deleteBtn.setOnClickListener {
-            GlobalScope.launch {
-                operator.deleteNote(currentNode)
+            MainScope().launch(Dispatchers.IO) {
+                dao.delete(currentNode)
             }
             notes.removeAt(pos)
             refresh(
@@ -82,6 +108,9 @@ class NoteListAdapter(operator: NoteOperator, context: Context) :
         }
         holder.dateText.text = SIMPLE_DATE_FORMAT.format(currentNode.date)
         holder.contentText.text = currentNode.content
+        holder.contentText.setOnClickListener {
+            listener.onContentClick(currentNode)
+        }
         holder.checkBox.isChecked = currentNode.Done
         if (currentNode.Done) {
             holder.contentText.setTextColor(Color.GRAY)
@@ -95,10 +124,11 @@ class NoteListAdapter(operator: NoteOperator, context: Context) :
         holder.contentText.setBackgroundColor(bgColor[currentNode.priority])
         holder.checkBox.setOnClickListener {
             currentNode.Done = (!currentNode.Done)
-            GlobalScope.launch {
-                operator.updateNote(currentNode)
+
+            MainScope().launch(Dispatchers.IO) {
+                dao.update(currentNode)
             }
-            notes [pos] = currentNode
+            notes[pos] = currentNode
             refresh(
                 mSharedPreferences.getBoolean(
                     KEY_IS_NEED_SORT,
@@ -112,17 +142,18 @@ class NoteListAdapter(operator: NoteOperator, context: Context) :
         return notes.size;
     }
 
-    class NoteViewHolder(@NonNull itemView: View) : RecyclerView.ViewHolder(itemView) {
+    class NoteViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val dateText: TextView = itemView.findViewById(R.id.text_date)
         val deleteBtn: View = itemView.findViewById(R.id.btn_delete)
         val contentText: TextView = itemView.findViewById(R.id.text_content)
         val checkBox: CheckBox = itemView.findViewById(R.id.checkbox)
+        val remainTime: TextView = itemView.findViewById(R.id.remainTime)
     }
 
     companion object {
         private val SIMPLE_DATE_FORMAT = SimpleDateFormat("EEE, d MMM yyyy HH:mm", Locale.ENGLISH)
-        private val bgColor = intArrayOf(Color.RED, Color.YELLOW, Color.WHITE)
-        private const val KEY_IS_NEED_SORT = "is_need_sort"
+        private val bgColor = intArrayOf(Color.WHITE, Color.YELLOW, Color.RED)
+        private const val KEY_IS_NEED_SORT = "is_need_to_sort"
     }
 
 }

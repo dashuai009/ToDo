@@ -1,13 +1,13 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/action_settings"
+        android:id="@+id/normally_sort"
         android:orderInCategory="100"
-        android:title="@string/action_settings"
+        android:title="普通排序"
         app:showAsAction="never" />
     <item
-        android:id="@+id/action_debug"
+        android:id="@+id/sort_by_time"
         android:orderInCategory="100"
-        android:title="@string/action_debug"
+        android:title="重要事件优先显示"
         app:showAsAction="never" />
 </menu>

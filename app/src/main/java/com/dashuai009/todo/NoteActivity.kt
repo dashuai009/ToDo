@@ -3,6 +3,7 @@ package com.dashuai009.todo;
 
 import android.app.DatePickerDialog.OnDateSetListener
 import android.app.TimePickerDialog.OnTimeSetListener
+import android.content.Intent
 import android.os.Bundle
 import android.text.TextUtils
 import android.util.Log
@@ -25,18 +26,20 @@ import java.util.*
 
 
 class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
-    OnItemSelectedListener , CoroutineScope by MainScope() {
+    OnItemSelectedListener {
     private lateinit var editText: EditText
-    private lateinit var dateText: EditText
-    private lateinit var timeText: EditText
+    private lateinit var dateText: TextView
+    private lateinit var timeText: TextView
     private lateinit var addBtn: Button
     private lateinit var prioritySpinner: Spinner
-    private lateinit var dao:NoteDao
+    private lateinit var dao: NoteDao
+    private lateinit var curNote: Note;
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_note)
+        //dao=intent.extras!!["dao"] as NoteDao
 
         val db = Room.databaseBuilder(
             applicationContext,
@@ -44,13 +47,9 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
         ).build()
         dao = db.noteDao();
 
+        val id = intent.extras!!["id"] as Long
 
-        val c = Calendar.getInstance()
-        todoYear = c[Calendar.YEAR]
-        todoMonth = c[Calendar.MONTH]
-        todoDay = c[Calendar.DAY_OF_MONTH]
-        todoHour = c[Calendar.HOUR_OF_DAY]
-        todoMinute = c[Calendar.MINUTE]
+
         setTitle(R.string.take_a_note)
         editText = findViewById(R.id.edit_text)
         editText.setFocusable(true)
@@ -67,35 +66,11 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
                 ).show()
                 return@OnClickListener
             }
-            launch {
-                val succeed = async {saveNote2Database(content.toString().trim { it <= ' ' })}
-                if (succeed.await()) {
-                    /*
-                    TODO  未解决的问题，无法在协程中v操作view
-                     android.view.ViewRootImpl$CalledFromWrongThreadException: Only the original thread that created a view hierarchy can touch its views.
-                     */
-
-                    /*Toast.makeText(
-                        this@NoteActivity,
-                        "Note added", Toast.LENGTH_SHORT
-                    ).show()*/
-                    setResult(RESULT_OK)
-                    finish()
-                } else {
-                    /*Toast.makeText(
-                        this@NoteActivity,
-                        "Error", Toast.LENGTH_SHORT
-                    ).show()*/
-                }
-                //setResult(RESULT_OK)
-                //finish()
+            MainScope().launch(Dispatchers.IO) {
+                saveNote2Database(content.toString().trim { it <= ' ' })
             }
         })
-        var thread = object : Thread() {
-            override fun run() {
-                finish();
-            }
-        }
+
         dateText = findViewById(R.id.editTextDate)
         timeText = findViewById(R.id.editTextTime)
 
@@ -107,17 +82,38 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         prioritySpinner.adapter = adapter
         prioritySpinner.onItemSelectedListener = this as OnItemSelectedListener
+        if (id > 0) {
+            MainScope().launch(Dispatchers.IO) {
+                val curNote0 = dao.getById(id);
+                MainScope().launch(Dispatchers.Main) {
+                    setCurNote(curNote0)
+                }
+            }
+        } else {
+            setCurNote(Note("", Date(), false, 0))
+        }
+    }
+
+    fun setCurNote(x: Note) {
+        Log.d("IDDD", x.toString())
+        curNote = x;
+        editText.setText(curNote.content)
+        val ftyMd = SimpleDateFormat("yyyy-MM-dd", Locale.ENGLISH)
+        val ftHm = SimpleDateFormat("HH:mm", Locale.ENGLISH)
+        dateText.setText(ftyMd.format(curNote.date))
+        timeText.setText(ftHm.format(curNote.date))
+        val c = Calendar.getInstance()
+        c.time = curNote.date
+        todoYear = c[Calendar.YEAR]
+        todoMonth = c[Calendar.MONTH] + 1
+        todoDay = c[Calendar.DAY_OF_MONTH]
+        todoHour = c[Calendar.HOUR_OF_DAY]
+        todoMinute = c[Calendar.MINUTE]
     }
 
 
-    override fun onItemSelected(
-        parent: AdapterView<*>, view: View,
-        pos: Int, id: Long
-    ) {
-        // An item was selected. You can retrieve the selected item using
-        // parent.getItemAtPosition(pos)
+    override fun onItemSelected(parent: AdapterView<*>, view: View, pos: Int, id: Long) {
         priorityValue = pos
-        Log.d("priorityValue", "${priorityValue}" + parent.getItemAtPosition(pos))
     }
 
     override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -137,9 +133,9 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
     override fun onDateSet(view: DatePicker, year: Int, month: Int, day: Int) {
         // Do something with the date chosen by the user
         todoYear = year
-        todoMonth = month
+        todoMonth = month + 1
         todoDay = day
-        dateText.setText("$year-$month-$day")
+        dateText.setText("$year-${month + 1}-$day")
     }
 
     override fun onTimeSet(view: TimePicker, hourOfDay: Int, minute: Int) {
@@ -162,15 +158,29 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
         } catch (e: ParseException) {
             Log.d("parse", "Unparseable using $ft")
         }
-        //val ft2 = SimpleDateFormat("EEE, d MMM yyyy HH:mm", Locale.ENGLISH)
-        //Log.d("todoTTT", ft2.format(tag))
         return tag!!
     }
 
-    private suspend fun saveNote2Database(content: String): Boolean {
-
-        val newRowId=dao.insert(Note(content,stringFrom5int(),false,priorityValue))
-        return newRowId != 0L
+    private suspend fun saveNote2Database(content: String) {
+        //Note: var content: String,
+        //      var date: Date,
+        //      var Done: Boolean,
+        //      var priority: Int = 2
+        //          id:Long=0
+        curNote.date = stringFrom5int()
+        curNote.priority = priorityValue
+        curNote.content = content
+        val newRowId = if (curNote.id <= 0) {
+            //curNote.id=0
+            dao.insert(curNote)
+        } else {
+            dao.update(curNote)
+            curNote.id
+        }
+        intent = Intent();
+        intent.putExtra("id", newRowId);
+        setResult(RESULT_OK, intent)
+        finish()
     }
 
     companion object {

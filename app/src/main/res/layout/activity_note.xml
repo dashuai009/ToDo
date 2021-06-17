@@ -41,11 +41,13 @@
         app:layout_constraintTop_toBottomOf="@+id/editTextDate"
         tools:ignore="MissingConstraints" />
 
-    <EditText
+    <TextView
         android:id="@+id/editTextDate"
         android:layout_width="188dp"
         android:layout_height="49dp"
         android:layout_marginTop="56dp"
+        android:focusable="false"
+
         android:ems="10"
         android:inputType="date"
         app:layout_constraintEnd_toEndOf="parent"
@@ -66,11 +68,12 @@
         app:layout_constraintTop_toBottomOf="@+id/editTextTime"
         tools:ignore="MissingConstraints" />
 
-    <EditText
+    <TextView
         android:id="@+id/editTextTime"
         android:layout_width="177dp"
         android:layout_height="49dp"
         android:layout_marginTop="56dp"
+        android:focusable="false"
         android:ems="10"
         android:inputType="time"
         app:layout_constraintStart_toStartOf="parent"
