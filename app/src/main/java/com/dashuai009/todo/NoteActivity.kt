@@ -13,9 +13,6 @@ import android.widget.*
 import android.widget.AdapterView.OnItemSelectedListener
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.DialogFragment
-import androidx.room.Room
-import com.dashuai009.todo.db.TodoDataBase
-import com.dashuai009.todo.db.dao.NoteDao
 import com.dashuai009.todo.db.entity.Note
 import com.dashuai009.todo.ui.DatePickerFragment
 import com.dashuai009.todo.ui.TimePickerFragment
@@ -32,23 +29,15 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
     private lateinit var timeText: TextView
     private lateinit var addBtn: Button
     private lateinit var prioritySpinner: Spinner
-    private lateinit var dao: NoteDao
     private lateinit var curNote: Note;
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_note)
-        //dao=intent.extras!!["dao"] as NoteDao
 
-        val db = Room.databaseBuilder(
-            applicationContext,
-            TodoDataBase::class.java, "todo"
-        ).build()
-        dao = db.noteDao();
-
-        val id = intent.extras!!["id"] as Long
-
+        curNote = intent.extras!!["note"] as Note
+        Log.d("tagtagtag",curNote.toString())
 
         setTitle(R.string.take_a_note)
         editText = findViewById(R.id.edit_text)
@@ -81,17 +70,10 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
         )
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         prioritySpinner.adapter = adapter
+        prioritySpinner.setSelection(curNote.priority)
         prioritySpinner.onItemSelectedListener = this as OnItemSelectedListener
-        if (id > 0) {
-            MainScope().launch(Dispatchers.IO) {
-                val curNote0 = dao.getById(id);
-                MainScope().launch(Dispatchers.Main) {
-                    setCurNote(curNote0)
-                }
-            }
-        } else {
-            setCurNote(Note("", Date(), false, 0))
-        }
+
+        setCurNote(curNote)
     }
 
     fun setCurNote(x: Note) {
@@ -108,12 +90,12 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
         todoDay = c[Calendar.DAY_OF_MONTH]
         todoHour = c[Calendar.HOUR_OF_DAY]
         todoMinute = c[Calendar.MINUTE]
-       // prioritySpinner.setSelection(priorityValue)
+        // prioritySpinner.setSelection(priorityValue)
     }
 
 
     override fun onItemSelected(parent: AdapterView<*>, view: View, pos: Int, id: Long) {
-        priorityValue = pos
+        curNote.priority = pos
     }
 
     override fun onNothingSelected(parent: AdapterView<*>?) {
@@ -168,17 +150,11 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
         //      var priority: Int = 2
         //          id:Long=0
         curNote.date = stringFrom5int()
-        curNote.priority = priorityValue
         curNote.content = content
-        val newRowId = if (curNote.id <= 0) {
-            //curNote.id=0
-            dao.insert(curNote)
-        } else {
-            dao.update(curNote)
-            curNote.id
-        }
+
         intent = Intent()
-        intent.putExtra("id", newRowId);
+        intent.putExtra("curNode",curNote)
+
         setResult(RESULT_OK, intent)
         finish()
     }
@@ -189,6 +165,5 @@ class NoteActivity : AppCompatActivity(), OnTimeSetListener, OnDateSetListener,
         private var todoDay = 0
         private var todoHour = 0
         private var todoMinute = 0
-        private var priorityValue = 0
     }
 }
